@@ -1,10 +1,16 @@
 #include <RTClib.h>
-#include <SPI.h>
-#include <SD.h>
 #include <Wire.h>
 #include <Adafruit_INA219.h>
 #include <avr/sleep.h>
 #include <avr/wdt.h>
+#include <SPI.h>
+#include "SdFat.h"
+
+const int8_t DISABLE_CHIP_SELECT = -1;
+const uint8_t spiSpeed = SPI_HALF_SPEED;
+
+SdFat sd;
+SdFile dataFile;
 
 #define LED 1 // notification LED
 
@@ -55,8 +61,9 @@ void setup() {
   }
   
   // Start SD, long notify
-  if (!SD.begin(chipSelect)) {
+  if (!sd.begin(chipSelect, spiSpeed)) {
     notify(1200);
+    sd.initErrorHalt();
     return;
   }
   // Start INA219;
@@ -68,8 +75,7 @@ void setup() {
   sprintf(filename, "%04d%02d%02d.csv", now.year(), now.month(), now.day());
 
   // Set header for readings
-  File dataFile = SD.open(filename, FILE_WRITE);
-  if(dataFile) {
+  if(dataFile.open(filename, O_WRITE)) {
     dataFile.println("\"DATE\";\"TIME\";\"SHUNT V\";\"BUS V\";\"CURRENT mA\";\"LOAD V\"");
     dataFile.close();
   }
@@ -97,10 +103,7 @@ void loop() {
   loadvoltage = busvoltage + (shuntvoltage / 1000);
   
   // Write all to SD card
-  File dataFile = SD.open(filename, FILE_WRITE);
-
-  // if the file is available, write data:
-  if (dataFile) {
+  if (dataFile.open(filename, O_WRITE)) {
     dataFile.print('"');
     dataFile.print(rDate);
     dataFile.print("\";\"");
